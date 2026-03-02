@@ -7,6 +7,8 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 FROM base AS builder
+ARG SKIP_ENV_VALIDATION=true
+ENV SKIP_ENV_VALIDATION=$SKIP_ENV_VALIDATION
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .

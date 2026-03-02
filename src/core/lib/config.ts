@@ -1,12 +1,9 @@
 import { z } from "zod";
 
-const envSchema = z.object({
+const serverEnvSchema = z.object({
   MONGODB_URI: z
     .string()
-    .url({
-      message:
-        "MONGODB_URI must be a valid connection string (e.g., mongodb+srv://...)",
-    }),
+    .url({ message: "MONGODB_URI must be a valid connection string" }),
   BETTER_AUTH_SECRET: z
     .string()
     .min(32, {
@@ -14,47 +11,81 @@ const envSchema = z.object({
     }),
   BETTER_AUTH_URL: z
     .string()
-    .url({
-      message:
-        "BETTER_AUTH_URL must be a valid URL (e.g., http://localhost:3000)",
-    }),
+    .url({ message: "BETTER_AUTH_URL must be a valid URL" }),
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  SKIP_ENV_VALIDATION: z.string().optional(),
 });
 
-export type Env = z.infer<typeof envSchema>;
+const clientEnvSchema = z.object({
+  NEXT_PUBLIC_BETTER_AUTH_URL: z
+    .string()
+    .url({ message: "NEXT_PUBLIC_BETTER_AUTH_URL must be a valid URL" }),
+});
+
+export type Env = z.infer<typeof serverEnvSchema> &
+  z.infer<typeof clientEnvSchema>;
 
 function validateConfig(): Env {
-  const result = envSchema.safeParse(process.env);
+  const isBuildPhase = process.env.SKIP_ENV_VALIDATION === "true";
 
-  if (!result.success) {
+  const serverParsed = serverEnvSchema.safeParse(process.env);
+  const clientParsed = clientEnvSchema.safeParse({
+    NEXT_PUBLIC_BETTER_AUTH_URL:
+      process.env.NEXT_PUBLIC_BETTER_AUTH_URL || process.env.BETTER_AUTH_URL,
+  });
+
+  const hasErrors = !serverParsed.success || !clientParsed.success;
+
+  if (hasErrors) {
+    if (isBuildPhase) {
+      console.warn(
+        "⚠️  Skipping strict environment validation during build phase.",
+      );
+      if (!serverParsed.success) {
+        serverParsed.error.issues.forEach((issue) => {
+          console.warn(
+            `   - [Build Warning] ${issue.path.join(".")}: ${issue.message}`,
+          );
+        });
+      }
+      if (!clientParsed.success) {
+        clientParsed.error.issues.forEach((issue) => {
+          console.warn(
+            `   - [Build Warning] ${issue.path.join(".")}: ${issue.message}`,
+          );
+        });
+      }
+      // Export raw process.env cast to Env to satisfy TypeScript without dummy data
+      return process.env as unknown as Env;
+    }
+
     console.error("❌ Invalid environment variables:");
-    result.error.issues.forEach((issue) => {
-      console.error(`   - ${issue.path.join(".")}: ${issue.message}`);
-    });
+    if (!serverParsed.success) {
+      serverParsed.error.issues.forEach((issue) => {
+        console.error(`   - ${issue.path.join(".")}: ${issue.message}`);
+      });
+    }
+    if (!clientParsed.success) {
+      clientParsed.error.issues.forEach((issue) => {
+        console.error(`   - ${issue.path.join(".")}: ${issue.message}`);
+      });
+    }
 
-    // In production, we want to fail fast if config is invalid
+    // In production runtime, we MUST crash if critical variables like MONGODB_URI are missing
     if (process.env.NODE_ENV === "production") {
+      console.error(
+        "🚨 Critical configuration error in production. Application exiting.",
+      );
       process.exit(1);
     }
   }
 
-  // If validation fails in dev, we return the data anyway but with defaults/warnings
-  // to avoid blocking the build process if missing during build time
-  return (
-    result.data ||
-    ({
-      MONGODB_URI:
-        process.env.MONGODB_URI ||
-        "mongodb://localhost:27017/nextjs_foundation",
-      BETTER_AUTH_SECRET:
-        process.env.BETTER_AUTH_SECRET ||
-        "default_local_secret_for_development_only",
-      BETTER_AUTH_URL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-      NODE_ENV: "development",
-    } as Env)
-  );
+  return {
+    ...serverParsed.data,
+    ...clientParsed.data,
+  } as Env;
 }
 
 export const env = validateConfig();
