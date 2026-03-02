@@ -1,9 +1,9 @@
 import { z } from "zod";
 
 const serverEnvSchema = z.object({
-  MONGODB_URI: z
-    .string()
-    .url({ message: "MONGODB_URI must be a valid connection string" }),
+  MONGODB_URI: z.string().regex(/^mongodb(\+srv)?:\/\/.+$/, {
+    message: "MONGODB_URI must be a valid MongoDB connection string",
+  }),
   BETTER_AUTH_SECRET: z.string().min(32, {
     message: "BETTER_AUTH_SECRET must be at least 32 characters long",
   }),
