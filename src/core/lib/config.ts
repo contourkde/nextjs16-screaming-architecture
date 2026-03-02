@@ -4,11 +4,9 @@ const serverEnvSchema = z.object({
   MONGODB_URI: z
     .string()
     .url({ message: "MONGODB_URI must be a valid connection string" }),
-  BETTER_AUTH_SECRET: z
-    .string()
-    .min(32, {
-      message: "BETTER_AUTH_SECRET must be at least 32 characters long",
-    }),
+  BETTER_AUTH_SECRET: z.string().min(32, {
+    message: "BETTER_AUTH_SECRET must be at least 32 characters long",
+  }),
   BETTER_AUTH_URL: z
     .string()
     .url({ message: "BETTER_AUTH_URL must be a valid URL" }),
@@ -57,8 +55,15 @@ function validateConfig(): Env {
           );
         });
       }
-      // Export raw process.env cast to Env to satisfy TypeScript without dummy data
-      return process.env as unknown as Env;
+
+      // Return a Proxy during build to prevent undefined crashes in libraries
+      // but without hardcoding "dummy" data.
+      return new Proxy(process.env, {
+        get(target, prop: string) {
+          if (typeof prop !== "string") return undefined;
+          return target[prop] ?? "";
+        },
+      }) as unknown as Env;
     }
 
     console.error("❌ Invalid environment variables:");
