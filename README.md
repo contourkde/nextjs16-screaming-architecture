@@ -1,6 +1,6 @@
 # Next.js Foundation Template
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/NWersw?referralCode=-96QSv&utm_medium=integration&utm_source=template&utm_campaign=generic)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/nextjs16-with-mongodb-and-better-auth?referralCode=-96QSv&utm_medium=integration&utm_source=template&utm_campaign=generic)
 
 This Next.js 16.1.6 template is designed for building scalable web applications. It implements a "Screaming Architecture" pattern and comes pre-configured with several essential tools.
 
